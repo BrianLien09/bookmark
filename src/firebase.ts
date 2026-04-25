@@ -51,10 +51,15 @@ export function getFirebaseConfigDetails() {
     appId: 'VITE_FIREBASE_APP_ID',
   };
 
+  // 在開發環境顯示完整值，便於診斷；生產環境隱藏敏感資訊
+  const isDevelopment = import.meta.env.DEV;
+
   return Object.entries(firebaseConfig).map(([key, value]) => ({
     name: envVarNames[key as keyof typeof envVarNames],
     isSet: Boolean(value),
-    maskedValue: value ? maskSensitiveValue(value) : '(未設定)',
+    displayValue: value 
+      ? (isDevelopment ? value : maskSensitiveValue(value))
+      : '(未設定)',
   }));
 }
 

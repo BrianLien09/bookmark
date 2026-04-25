@@ -423,7 +423,7 @@ export default function App() {
                     </div>
                     <div className="status-info">
                       <code className="var-name">{detail.name}</code>
-                      <span className="var-value">{detail.maskedValue}</span>
+                      <span className="var-value">{detail.displayValue}</span>
                     </div>
                   </div>
                 ))}
