@@ -1,4 +1,4 @@
-name: Deploy to master
+name: Deploy to GitHub Pages
 
 on:
   push:
@@ -7,17 +7,19 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: true
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
-concurrency:
-  group: deploy-master
-  cancel-in-progress: true
-
 jobs:
-  build-and-deploy:
+  build:
     runs-on: ubuntu-latest
     env:
       VITE_FIREBASE_API_KEY: ${{ vars.VITE_FIREBASE_API_KEY }}
@@ -27,10 +29,8 @@ jobs:
       VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ vars.VITE_FIREBASE_MESSAGING_SENDER_ID }}
       VITE_FIREBASE_APP_ID: ${{ vars.VITE_FIREBASE_APP_ID }}
     steps:
-      - name: Checkout main
+      - name: Checkout
         uses: actions/checkout@v5
-        with:
-          ref: main
 
       - name: Setup Node
         uses: actions/setup-node@v5
@@ -44,30 +44,21 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Checkout master
-        uses: actions/checkout@v5
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          ref: master
-          path: master-branch
-          persist-credentials: true
+          path: dist
 
-      - name: Replace master contents
-        shell: bash
-        run: |
-          rm -rf master-branch/* master-branch/.[!.]* master-branch/..?* || true
-          cp -R dist/. master-branch/
-          cp master-branch/index.html master-branch/404.html
-
-      - name: Commit and push master
-        shell: bash
-        run: |
-          cd master-branch
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          if git diff --cached --quiet; then
-            echo "No deployment changes"
-            exit 0
-          fi
-          git commit -m "chore(deploy): 更新 GitHub Pages 靜態檔"
-          git push origin HEAD:master
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
