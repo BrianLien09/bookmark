@@ -1,27 +1,26 @@
-name: Deploy to GitHub Pages
+name: Deploy to master
 
 on:
   push:
     branches:
-      - master
       - main
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
-  group: github-pages
+  group: deploy-master
   cancel-in-progress: true
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout main
         uses: actions/checkout@v4
+        with:
+          ref: main
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -35,21 +34,29 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+      - name: Checkout master
+        uses: actions/checkout@v4
         with:
-          path: dist
+          ref: master
+          path: master-branch
 
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Replace master contents
+        shell: bash
+        run: |
+          rm -rf master-branch/*
+          cp -R dist/. master-branch/
+          cp master-branch/index.html master-branch/404.html
+
+      - name: Commit and push master
+        shell: bash
+        run: |
+          cd master-branch
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No deployment changes"
+            exit 0
+          fi
+          git commit -m "chore(deploy): 更新 GitHub Pages 靜態檔"
+          git push origin master
