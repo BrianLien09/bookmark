@@ -1,9 +1,12 @@
+export type BookmarkMode = 'entertainment' | 'study' | 'coding';
+
 export type Bookmark = {
   id: string;
   title: string;
   url: string;
   siteDescription?: string;
   faviconUrl?: string;
+  bookmarkMode?: BookmarkMode;
   category: string;
   notes: string;
   folderColor: string;

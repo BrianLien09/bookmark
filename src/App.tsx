@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, type User } from 'firebase/auth';
 import { addDoc, collection, deleteDoc, doc, onSnapshot, query, updateDoc, where } from 'firebase/firestore';
 import { auth, db, firebaseReady, getFirebaseConfigErrors } from './firebase';
-import type { AuthMode, Bookmark, BookmarkFormState } from './types';
+import type { AuthMode, Bookmark, BookmarkFormState, BookmarkMode } from './types';
 
 const emptyForm: BookmarkFormState = {
   title: '',
@@ -100,6 +100,148 @@ type MicrolinkResponse = {
   };
 };
 
+type ModeOption = {
+  key: BookmarkMode;
+  label: string;
+  icon: string;
+};
+
+const modeOptions: ModeOption[] = [
+  {
+    key: 'entertainment',
+    label: '娛樂',
+    icon: '🎬',
+  },
+  {
+    key: 'study',
+    label: '上課',
+    icon: '📚',
+  },
+  {
+    key: 'coding',
+    label: 'coding',
+    icon: '💻',
+  },
+];
+
+type ModeCategoryMap = Record<BookmarkMode, string[]>;
+
+const modeCategoriesStorageKey = 'bookmark-mode-categories-v1';
+
+const defaultModeCategoryMap: ModeCategoryMap = {
+  entertainment: ['影片', '音樂', '社群', '遊戲', '新聞', '生活'],
+  study: ['課程平台', '作業', '講義', '參考資料', '測驗', '學習工具'],
+  coding: ['文件', '套件', '範例', '部署', '除錯', '工具'],
+};
+
+function normalizeCategories(values: string[]): string[] {
+  const seen = new Set<string>();
+  const normalized: string[] = [];
+
+  values.forEach((value) => {
+    const nextValue = value.trim();
+    if (!nextValue) {
+      return;
+    }
+    const dedupeKey = nextValue.toLowerCase();
+    if (seen.has(dedupeKey)) {
+      return;
+    }
+    seen.add(dedupeKey);
+    normalized.push(nextValue);
+  });
+
+  return normalized;
+}
+
+function parseCategoryInput(value: string): string[] {
+  return normalizeCategories(value.split(/[\n,，]/g));
+}
+
+function buildModeCategoryDraft(map: ModeCategoryMap): Record<BookmarkMode, string> {
+  return {
+    entertainment: map.entertainment.join('\n'),
+    study: map.study.join('\n'),
+    coding: map.coding.join('\n'),
+  };
+}
+
+function loadModeCategoryMap(): ModeCategoryMap {
+  if (typeof window === 'undefined') {
+    return defaultModeCategoryMap;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(modeCategoriesStorageKey);
+    if (!raw) {
+      return defaultModeCategoryMap;
+    }
+    const parsed = JSON.parse(raw) as Partial<ModeCategoryMap>;
+
+    return {
+      entertainment: normalizeCategories(parsed.entertainment ?? defaultModeCategoryMap.entertainment),
+      study: normalizeCategories(parsed.study ?? defaultModeCategoryMap.study),
+      coding: normalizeCategories(parsed.coding ?? defaultModeCategoryMap.coding),
+    };
+  } catch {
+    return defaultModeCategoryMap;
+  }
+}
+
+const modeCategoryKeywords: Record<BookmarkMode, string[]> = {
+  entertainment: ['影片', '音樂', '社群', '遊戲', '娛樂', 'news', 'movie', 'music'],
+  study: ['課程', '學習', '作業', '講義', '教學', '學校', 'study', 'class'],
+  coding: ['程式', 'coding', 'code', 'dev', 'api', 'github', 'deploy', '文件'],
+};
+
+function inferModeFromCategory(category: string, modeCategoryMap: ModeCategoryMap): BookmarkMode {
+  const value = category.toLowerCase();
+
+  for (const modeKey of ['entertainment', 'study', 'coding'] as BookmarkMode[]) {
+    if (modeCategoryMap[modeKey].some((item) => item.toLowerCase() === value.trim())) {
+      return modeKey;
+    }
+  }
+
+  const modeOrder: BookmarkMode[] = ['coding', 'study', 'entertainment'];
+
+  for (const modeKey of modeOrder) {
+    if (modeCategoryKeywords[modeKey].some((keyword) => value.includes(keyword.toLowerCase()))) {
+      return modeKey;
+    }
+  }
+
+  return 'entertainment';
+}
+
+function findModeByExactCategory(category: string, modeCategoryMap: ModeCategoryMap): BookmarkMode | null {
+  const normalizedCategory = category.trim().toLowerCase();
+  if (!normalizedCategory) {
+    return null;
+  }
+
+  for (const modeKey of ['entertainment', 'study', 'coding'] as BookmarkMode[]) {
+    if (modeCategoryMap[modeKey].some((item) => item.toLowerCase() === normalizedCategory)) {
+      return modeKey;
+    }
+  }
+
+  return null;
+}
+
+function resolveBookmarkMode(bookmark: Bookmark, modeCategoryMap: ModeCategoryMap): BookmarkMode {
+  // 以分類對應為最高優先，確保使用者手動指定的分類模式能即時反映到畫面
+  const mappedMode = findModeByExactCategory(bookmark.category, modeCategoryMap);
+  if (mappedMode) {
+    return mappedMode;
+  }
+
+  if (bookmark.bookmarkMode) {
+    return bookmark.bookmarkMode;
+  }
+  return inferModeFromCategory(bookmark.category, modeCategoryMap);
+}
+
 function buildDefaultDescription(url: URL): string {
   // 為了避免第三方 metadata 服務失敗時畫面空白，保留可讀的預設描述
   return `${url.hostname} 的網站連結`;
@@ -180,6 +322,15 @@ export default function App() {
   const [password, setPassword] = useState('');
   const [authMessage, setAuthMessage] = useState('');
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
+  const [bookmarkMode, setBookmarkMode] = useState<BookmarkMode>('entertainment');
+  const [modeCategoryMap, setModeCategoryMap] = useState<ModeCategoryMap>(loadModeCategoryMap);
+  const [editingModeCategories, setEditingModeCategories] = useState(false);
+  const [modeCategoryDraft, setModeCategoryDraft] = useState<Record<BookmarkMode, string>>(() => buildModeCategoryDraft(loadModeCategoryMap()));
+  const [editingCategoryName, setEditingCategoryName] = useState<string | null>(null);
+  const [categoryRenameDraft, setCategoryRenameDraft] = useState('');
+  const [categoryTargetMode, setCategoryTargetMode] = useState<BookmarkMode>('entertainment');
+  const [renamingCategory, setRenamingCategory] = useState(false);
+  const [deletingCategory, setDeletingCategory] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [categorySelection, setCategorySelection] = useState('__new__');
@@ -221,22 +372,36 @@ export default function App() {
     });
   }, [user]);
 
+  useEffect(() => {
+    // 這邊存到 localStorage 是為了讓使用者自訂的分類對應在重新整理後仍可保留
+    window.localStorage.setItem(modeCategoriesStorageKey, JSON.stringify(modeCategoryMap));
+  }, [modeCategoryMap]);
+
+  const bookmarksInCurrentMode = useMemo(
+    () => bookmarks.filter((item) => resolveBookmarkMode(item, modeCategoryMap) === bookmarkMode),
+    [bookmarks, bookmarkMode, modeCategoryMap],
+  );
+
   const stats = useMemo(() => {
-    const categories = new Set(bookmarks.map((item) => item.category.trim()).filter(Boolean));
+    const categories = new Set(bookmarksInCurrentMode.map((item) => item.category.trim()).filter(Boolean));
     return {
-      total: bookmarks.length,
+      total: bookmarksInCurrentMode.length,
       categories: categories.size,
     };
-  }, [bookmarks]);
+  }, [bookmarksInCurrentMode]);
 
   const categoryOptions = useMemo(() => {
-    return Array.from(new Set(bookmarks.map((item) => item.category.trim()).filter(Boolean))).sort((left, right) => left.localeCompare(right, 'zh-Hant'));
-  }, [bookmarks]);
+    const modeCategories = modeCategoryMap[bookmarkMode] ?? [];
+    const userCategories = Array.from(new Set(bookmarksInCurrentMode.map((item) => item.category.trim()).filter(Boolean))).sort((left, right) => left.localeCompare(right, 'zh-Hant'));
+    const merged = [...modeCategories, ...userCategories];
+
+    return Array.from(new Set(merged));
+  }, [bookmarksInCurrentMode, bookmarkMode, modeCategoryMap]);
 
   const categoryColorMap = useMemo(() => {
     const map = new Map<string, string>();
 
-    bookmarks.forEach((bookmark) => {
+    bookmarksInCurrentMode.forEach((bookmark) => {
       const category = bookmark.category.trim() || '未分類';
       if (!map.has(category)) {
         map.set(category, bookmark.folderColor);
@@ -244,9 +409,22 @@ export default function App() {
     });
 
     return map;
-  }, [bookmarks]);
+  }, [bookmarksInCurrentMode]);
 
-  const usedFolderColors = useMemo(() => new Set(bookmarks.map((item) => item.folderColor)), [bookmarks]);
+  const usedFolderColors = useMemo(() => new Set(bookmarksInCurrentMode.map((item) => item.folderColor)), [bookmarksInCurrentMode]);
+
+  useEffect(() => {
+    setCategoryFilter('all');
+    setCategorySelection('__new__');
+    setCustomCategory('');
+    setForm((current) => ({
+      ...current,
+      category: '',
+      folderColor: pickFolderColorForCategory(`mode-${bookmarkMode}`, usedFolderColors),
+    }));
+    draftCategoryNameRef.current = '';
+    draftCategoryColorRef.current = '';
+  }, [bookmarkMode]);
 
   function syncExistingCategory(category: string) {
     const nextColor = categoryColorMap.get(category) ?? pickFolderColorForCategory(category, usedFolderColors);
@@ -311,17 +489,172 @@ export default function App() {
     }));
   }
 
+  function handleOpenModeCategoryEditor() {
+    setModeCategoryDraft(buildModeCategoryDraft(modeCategoryMap));
+    setEditingModeCategories(true);
+  }
+
+  function handleCancelModeCategoryEditor() {
+    setEditingModeCategories(false);
+    setModeCategoryDraft(buildModeCategoryDraft(modeCategoryMap));
+  }
+
+  function handleSaveModeCategoryEditor() {
+    const nextMap: ModeCategoryMap = {
+      entertainment: parseCategoryInput(modeCategoryDraft.entertainment),
+      study: parseCategoryInput(modeCategoryDraft.study),
+      coding: parseCategoryInput(modeCategoryDraft.coding),
+    };
+
+    setModeCategoryMap(nextMap);
+    setEditingModeCategories(false);
+  }
+
+  function beginRenameCategory(category: string) {
+    const currentMode = findModeByExactCategory(category, modeCategoryMap) ?? bookmarkMode;
+    setEditingCategoryName(category);
+    setCategoryRenameDraft(category);
+    setCategoryTargetMode(currentMode);
+  }
+
+  function cancelRenameCategory() {
+    setEditingCategoryName(null);
+    setCategoryRenameDraft('');
+    setCategoryTargetMode(bookmarkMode);
+    setRenamingCategory(false);
+  }
+
+  async function submitRenameCategory(oldCategory: string, targets: Bookmark[]) {
+    if (!db || renamingCategory) {
+      return;
+    }
+    const activeDb = db;
+
+    const normalizedNewCategory = categoryRenameDraft.trim();
+    if (!normalizedNewCategory) {
+      setError('分類名稱不可空白。');
+      return;
+    }
+
+    const currentMode = findModeByExactCategory(oldCategory, modeCategoryMap) ?? bookmarkMode;
+    if (normalizedNewCategory === oldCategory && categoryTargetMode === currentMode) {
+      cancelRenameCategory();
+      return;
+    }
+
+    setRenamingCategory(true);
+    setError('');
+
+    const resolvedMode = categoryTargetMode;
+    const timestamp = Date.now();
+
+    try {
+      // 批次更新同分類書籤，避免分類名稱一半成功一半失敗，造成清單資料看起來不一致
+      await Promise.all(
+        targets.map((bookmark) => updateDoc(doc(activeDb, 'bookmarks', bookmark.id), {
+          category: normalizedNewCategory,
+          bookmarkMode: resolvedMode,
+          updatedAt: timestamp,
+        })),
+      );
+
+      setModeCategoryMap((current) => {
+        const removedOldCategoryMap: ModeCategoryMap = {
+          entertainment: current.entertainment.filter((item) => item !== oldCategory),
+          study: current.study.filter((item) => item !== oldCategory),
+          coding: current.coding.filter((item) => item !== oldCategory),
+        };
+
+        const nextItems = [...removedOldCategoryMap[resolvedMode], normalizedNewCategory];
+        return {
+          ...removedOldCategoryMap,
+          [resolvedMode]: normalizeCategories(nextItems),
+        };
+      });
+
+      setCategoryFilter((current) => (current === oldCategory ? normalizedNewCategory : current));
+      setCategorySelection((current) => (current === oldCategory ? normalizedNewCategory : current));
+      setCustomCategory((current) => (current.trim() === oldCategory ? normalizedNewCategory : current));
+      setForm((current) => ({
+        ...current,
+        category: current.category.trim() === oldCategory ? normalizedNewCategory : current.category,
+      }));
+
+      if (bookmarkMode !== resolvedMode) {
+        setBookmarkMode(resolvedMode);
+      }
+
+      cancelRenameCategory();
+    } catch (renameError) {
+      setError(formatFirestoreError(renameError));
+      setRenamingCategory(false);
+    }
+  }
+
+  async function deleteCategory(category: string, targets: Bookmark[]) {
+    if (!db || deletingCategory) {
+      return;
+    }
+
+    if (category === '未分類') {
+      setError('未分類不可刪除。');
+      return;
+    }
+
+    const confirmed = window.confirm(`確定刪除分類「${category}」嗎？\n該分類書籤會移到「未分類」。`);
+    if (!confirmed) {
+      return;
+    }
+
+    setDeletingCategory(true);
+    setError('');
+    const activeDb = db;
+    const timestamp = Date.now();
+
+    try {
+      // 刪除分類採用「移到未分類」而非刪資料，避免誤刪造成資料不可逆
+      await Promise.all(
+        targets.map((bookmark) => updateDoc(doc(activeDb, 'bookmarks', bookmark.id), {
+          category: '未分類',
+          updatedAt: timestamp,
+        })),
+      );
+
+      setModeCategoryMap((current) => ({
+        entertainment: current.entertainment.filter((item) => item !== category),
+        study: current.study.filter((item) => item !== category),
+        coding: current.coding.filter((item) => item !== category),
+      }));
+
+      if (editingCategoryName === category) {
+        cancelRenameCategory();
+      }
+
+      setCategoryFilter((current) => (current === category ? 'all' : current));
+      setCategorySelection((current) => (current === category ? '__new__' : current));
+      setCustomCategory((current) => (current.trim() === category ? '' : current));
+      setForm((current) => ({
+        ...current,
+        category: current.category.trim() === category ? '' : current.category,
+      }));
+    } catch (deleteError) {
+      setError(formatFirestoreError(deleteError));
+    } finally {
+      setDeletingCategory(false);
+    }
+  }
+
   const filteredBookmarks = useMemo(() => {
     const keyword = searchTerm.trim().toLowerCase();
 
-    return bookmarks.filter((bookmark) => {
+    return bookmarksInCurrentMode.filter((bookmark) => {
       const matchesCategory = categoryFilter === 'all' || (bookmark.category.trim() || '未分類') === categoryFilter;
       const haystack = [bookmark.title, bookmark.url, bookmark.siteDescription ?? '', bookmark.category, bookmark.notes].join(' ').toLowerCase();
       const matchesKeyword = keyword.length === 0 || haystack.includes(keyword);
 
       return matchesCategory && matchesKeyword;
     });
-  }, [bookmarks, categoryFilter, searchTerm]);
+  }, [bookmarksInCurrentMode, categoryFilter, searchTerm]);
 
   const groupedBookmarks = useMemo(() => {
     const groups = new Map<string, Bookmark[]>();
@@ -397,12 +730,15 @@ export default function App() {
 
     const resolvedColor = categoryColorMap.get(normalizedCategory) ?? pickFolderColorForCategory(normalizedCategory, usedFolderColors);
     const siteMetadata = await fetchSiteMetadata(normalizedUrl);
+    const mappedMode = findModeByExactCategory(normalizedCategory, modeCategoryMap);
+    const resolvedBookmarkMode = mappedMode ?? bookmarkMode;
 
     const timestamp = Date.now();
     const payload = {
       title: form.title.trim(),
       url: normalizedUrl,
       category: normalizedCategory,
+      bookmarkMode: resolvedBookmarkMode,
       siteDescription: siteMetadata.siteDescription,
       faviconUrl: siteMetadata.faviconUrl,
       notes: form.notes.trim(),
@@ -491,7 +827,7 @@ export default function App() {
     return (
       <main className="shell auth-shell">
         <section className="hero-card">
-          <p className="eyebrow">Bookmark Vault</p>
+          <p className="eyebrow">冥夜書籤小站</p>
           <h1>把你的常用網站收進一個安靜、好整理的空間。</h1>
           <p className="lead">註冊、登入、編輯、同步都在同一頁完成。適合個人收藏，也適合長期整理。</p>
           <ul className="feature-list">
@@ -532,7 +868,7 @@ export default function App() {
       <header className="topbar panel">
         <div>
           <p className="eyebrow">已登入</p>
-          <h1>Bookmark Vault</h1>
+          <h1>冥夜書籤小站</h1>
           <p className="muted">{user.email}</p>
         </div>
         <button className="ghost" type="button" onClick={handleLogout}>登出</button>
@@ -608,7 +944,53 @@ export default function App() {
               <p className="eyebrow">你的收藏</p>
               <h2>書籤清單</h2>
             </div>
+            <div className="section-controls">
+              <div className="mode-switch" role="tablist" aria-label="書籤模式切換">
+                {modeOptions.map((option) => (
+                  <button
+                    key={option.key}
+                    type="button"
+                    role="tab"
+                    aria-selected={bookmarkMode === option.key}
+                    className={bookmarkMode === option.key ? 'active' : ''}
+                    onClick={() => setBookmarkMode(option.key)}
+                  >
+                    <span aria-hidden="true">{option.icon}</span>
+                    <span>{option.label}</span>
+                  </button>
+                ))}
+              </div>
+              <button className="ghost mode-config-toggle" type="button" onClick={editingModeCategories ? handleCancelModeCategoryEditor : handleOpenModeCategoryEditor}>
+                {editingModeCategories ? '取消設定' : '編輯分類模式'}
+              </button>
+            </div>
           </div>
+
+          {editingModeCategories ? (
+            <section className="mode-config-panel" aria-label="分類模式設定">
+              <p className="mode-config-hint">可用逗號或換行分隔分類名稱，儲存後會影響各模式的預設分類呈現。</p>
+              <div className="mode-config-grid">
+                {modeOptions.map((option) => (
+                  <label key={option.key} className="mode-config-field">
+                    <span>{option.icon} {option.label}分類</span>
+                    <textarea
+                      rows={4}
+                      value={modeCategoryDraft[option.key]}
+                      onChange={(event) => setModeCategoryDraft((current) => ({
+                        ...current,
+                        [option.key]: event.target.value,
+                      }))}
+                      placeholder="例如：影片, 音樂, 社群"
+                    />
+                  </label>
+                ))}
+              </div>
+              <div className="mode-config-actions">
+                <button className="ghost" type="button" onClick={handleCancelModeCategoryEditor}>取消</button>
+                <button className="primary" type="button" onClick={handleSaveModeCategoryEditor}>儲存分類設定</button>
+              </div>
+            </section>
+          ) : null}
 
           <div className="toolbar">
             <label>
@@ -633,21 +1015,60 @@ export default function App() {
           </div>
 
           <div className="grouped-list">
-            {bookmarks.length === 0 ? <p className="empty">目前還沒有書籤，先新增第一筆。</p> : null}
-            {bookmarks.length > 0 && filteredBookmarks.length === 0 ? <p className="empty">沒有符合條件的書籤。</p> : null}
+            {bookmarksInCurrentMode.length === 0 ? <p className="empty">此模式目前還沒有書籤，先新增第一筆。</p> : null}
+            {bookmarksInCurrentMode.length > 0 && filteredBookmarks.length === 0 ? <p className="empty">沒有符合條件的書籤。</p> : null}
 
             {groupedBookmarks.map((group) => (
               <section className="bookmark-group" key={group.category}>
                 <div className="group-header">
                   <div className="group-title-wrap">
-                    <h3>{group.category}</h3>
+                    {editingCategoryName === group.category ? (
+                      <div className="category-rename-inline">
+                        <input
+                          value={categoryRenameDraft}
+                          onChange={(event) => setCategoryRenameDraft(event.target.value)}
+                          placeholder="輸入新的分類名稱"
+                          aria-label="新的分類名稱"
+                        />
+                        <select
+                          value={categoryTargetMode}
+                          onChange={(event) => setCategoryTargetMode(event.target.value as BookmarkMode)}
+                          aria-label="分類目標模式"
+                        >
+                          {modeOptions.map((option) => (
+                            <option key={option.key} value={option.key}>{option.icon} {option.label}</option>
+                          ))}
+                        </select>
+                        <button className="primary" type="button" disabled={renamingCategory} onClick={() => { void submitRenameCategory(group.category, group.items); }}>
+                          {renamingCategory ? '儲存中...' : '儲存'}
+                        </button>
+                        <button className="ghost" type="button" disabled={renamingCategory} onClick={cancelRenameCategory}>取消</button>
+                        <button className="ghost danger" type="button" disabled={renamingCategory || deletingCategory} onClick={() => { void deleteCategory(group.category, group.items); }}>
+                          {deletingCategory ? '刪除中...' : '刪除分類'}
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <h3>{group.category}</h3>
+                        <button className="ghost rename-category-btn" type="button" onClick={() => beginRenameCategory(group.category)}>改名</button>
+                        <button className="ghost danger rename-category-btn" type="button" disabled={deletingCategory} onClick={() => { void deleteCategory(group.category, group.items); }}>
+                          {deletingCategory ? '刪除中...' : '刪除分類'}
+                        </button>
+                      </>
+                    )}
                   </div>
                   <span className="group-count">{group.items.length}</span>
                 </div>
 
                 <div className="bookmark-list">
-                  {group.items.map((bookmark) => (
-                    <article className="bookmark-card" key={bookmark.id} style={{ borderLeftColor: bookmark.folderColor }}>
+                  {group.items.map((bookmark) => {
+                    const cardStyle: CSSProperties & { '--folder-color': string } = {
+                      borderLeftColor: bookmark.folderColor,
+                      '--folder-color': bookmark.folderColor,
+                    };
+
+                    return (
+                    <article className="bookmark-card" key={bookmark.id} style={cardStyle}>
                       <div className="bookmark-meta">
                         <div className="bookmark-site">
                           <p className="site-preview">
@@ -672,7 +1093,8 @@ export default function App() {
                         <button className="ghost danger" type="button" onClick={() => removeBookmark(bookmark.id)}>刪除</button>
                       </div>
                     </article>
-                  ))}
+                  );
+                  })}
                 </div>
               </section>
             ))}
