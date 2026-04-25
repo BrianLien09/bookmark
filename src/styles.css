@@ -465,10 +465,39 @@ select {
 .bookmark-meta a {
   background: rgba(37, 99, 235, 0.08);
   color: var(--primary);
+  flex: 0 0 auto;
+  min-width: 88px;
+  text-align: center;
+  white-space: nowrap;
+  align-self: flex-start;
 }
 
 .bookmark-meta h4 {
   margin-bottom: 4px;
+}
+
+.bookmark-meta > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.bookmark-meta p {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.site-preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.site-favicon {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  flex: 0 0 auto;
+  object-fit: cover;
 }
 
 .form select + input {

@@ -2,6 +2,8 @@ export type Bookmark = {
   id: string;
   title: string;
   url: string;
+  siteDescription?: string;
+  faviconUrl?: string;
   category: string;
   notes: string;
   folderColor: string;

@@ -82,6 +82,63 @@ function formatFirestoreError(error: unknown): string {
   return error.message;
 }
 
+type SiteMetadata = {
+  siteDescription: string;
+  faviconUrl: string;
+};
+
+type MicrolinkResponse = {
+  status?: string;
+  data?: {
+    description?: string;
+    logo?: {
+      url?: string;
+    };
+    image?: {
+      url?: string;
+    };
+  };
+};
+
+function buildDefaultDescription(url: URL): string {
+  // 為了避免第三方 metadata 服務失敗時畫面空白，保留可讀的預設描述
+  return `${url.hostname} 的網站連結`;
+}
+
+function buildDefaultFavicon(url: URL): string {
+  return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(url.hostname)}&sz=64`;
+}
+
+async function fetchSiteMetadata(urlValue: string): Promise<SiteMetadata> {
+  const parsedUrl = new URL(urlValue);
+  const fallbackDescription = buildDefaultDescription(parsedUrl);
+  const fallbackFavicon = buildDefaultFavicon(parsedUrl);
+
+  try {
+    const response = await fetch(`https://api.microlink.io/?url=${encodeURIComponent(urlValue)}&screenshot=false&meta=false&palette=false`);
+    if (!response.ok) {
+      return {
+        siteDescription: fallbackDescription,
+        faviconUrl: fallbackFavicon,
+      };
+    }
+
+    const payload = (await response.json()) as MicrolinkResponse;
+    const description = payload.data?.description?.trim() || fallbackDescription;
+    const iconCandidate = payload.data?.logo?.url || payload.data?.image?.url || fallbackFavicon;
+
+    return {
+      siteDescription: description,
+      faviconUrl: iconCandidate,
+    };
+  } catch {
+    return {
+      siteDescription: fallbackDescription,
+      faviconUrl: fallbackFavicon,
+    };
+  }
+}
+
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [mode, setMode] = useState<AuthMode>('login');
@@ -225,7 +282,7 @@ export default function App() {
 
     return bookmarks.filter((bookmark) => {
       const matchesCategory = categoryFilter === 'all' || (bookmark.category.trim() || '未分類') === categoryFilter;
-      const haystack = [bookmark.title, bookmark.url, bookmark.category, bookmark.notes].join(' ').toLowerCase();
+      const haystack = [bookmark.title, bookmark.url, bookmark.siteDescription ?? '', bookmark.category, bookmark.notes].join(' ').toLowerCase();
       const matchesKeyword = keyword.length === 0 || haystack.includes(keyword);
 
       return matchesCategory && matchesKeyword;
@@ -305,12 +362,15 @@ export default function App() {
     setError('');
 
     const resolvedColor = categoryColorMap.get(normalizedCategory) ?? pickFolderColorForCategory(normalizedCategory, usedFolderColors);
+    const siteMetadata = await fetchSiteMetadata(normalizedUrl);
 
     const timestamp = Date.now();
     const payload = {
       title: form.title.trim(),
       url: normalizedUrl,
       category: normalizedCategory,
+      siteDescription: siteMetadata.siteDescription,
+      faviconUrl: siteMetadata.faviconUrl,
       notes: form.notes.trim(),
       folderColor: resolvedColor,
       ownerUid: user.uid,
@@ -557,7 +617,17 @@ export default function App() {
                       <div className="bookmark-meta">
                         <div>
                           <h4>{bookmark.title}</h4>
-                          <p>{bookmark.url}</p>
+                          <p className="site-preview">
+                            <img
+                              className="site-favicon"
+                              src={bookmark.faviconUrl || buildDefaultFavicon(new URL(bookmark.url))}
+                              alt="網站圖標"
+                              loading="lazy"
+                              decoding="async"
+                              referrerPolicy="no-referrer"
+                            />
+                            <span>{bookmark.siteDescription?.trim() || buildDefaultDescription(new URL(bookmark.url))}</span>
+                          </p>
                         </div>
                         <a href={bookmark.url} target="_blank" rel="noreferrer">開啟</a>
                       </div>
