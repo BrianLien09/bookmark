@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, type User } from 'firebase/auth';
 import { addDoc, collection, deleteDoc, doc, onSnapshot, query, updateDoc, where } from 'firebase/firestore';
-import { auth, db, firebaseReady } from './firebase';
+import { auth, db, firebaseReady, getFirebaseConfigErrors } from './firebase';
 import type { AuthMode, Bookmark, BookmarkFormState } from './types';
 
 const emptyForm: BookmarkFormState = {
@@ -262,8 +262,13 @@ export default function App() {
     setError('');
     setAuthMessage('');
 
-    if (!auth) {
-      setError('Firebase 尚未完成設定。');
+    if (!auth || !firebaseReady) {
+      const missingVars = getFirebaseConfigErrors();
+      if (missingVars.length > 0) {
+        setError(`Firebase 設定不完整，缺失：${missingVars.join(', ')}`);
+      } else {
+        setError('Firebase 尚未完成設定。');
+      }
       return;
     }
 
@@ -396,12 +401,24 @@ export default function App() {
   }
 
   if (!firebaseReady) {
+    const missingVars = getFirebaseConfigErrors();
+
     return (
       <main className="shell centered">
         <section className="panel config-panel">
           <p className="eyebrow">Bookmark Vault</p>
           <h1>Firebase 尚未設定</h1>
-          <p className="lead">請先建立 `.env`，再重新啟動 `npm run dev`。</p>
+          {missingVars.length > 0 && (
+            <div className="error-details">
+              <p className="error">缺失以下環境變數：</p>
+              <ul className="missing-vars">
+                {missingVars.map((varName) => (
+                  <li key={varName}><code>{varName}</code></li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <p className="lead">請在 <code>.env</code> 中設定這些變數，再重新啟動 <code>npm run dev</code>。</p>
           <pre className="config-code">VITE_FIREBASE_API_KEY=...{"\n"}VITE_FIREBASE_AUTH_DOMAIN=...{"\n"}VITE_FIREBASE_PROJECT_ID=...{"\n"}VITE_FIREBASE_STORAGE_BUCKET=...{"\n"}VITE_FIREBASE_MESSAGING_SENDER_ID=...{"\n"}VITE_FIREBASE_APP_ID=...</pre>
           <p className="error">{configWarning}</p>
         </section>
