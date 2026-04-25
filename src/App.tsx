@@ -139,6 +139,40 @@ async function fetchSiteMetadata(urlValue: string): Promise<SiteMetadata> {
   }
 }
 
+function getBookmarkHostname(urlValue: string): string {
+  try {
+    return new URL(urlValue).hostname.replace(/^www\./, '');
+  } catch {
+    return '未知網域';
+  }
+}
+
+function getBookmarkDescription(bookmark: Bookmark): string {
+  const existingDescription = bookmark.siteDescription?.trim();
+  if (existingDescription) {
+    return existingDescription;
+  }
+
+  try {
+    return buildDefaultDescription(new URL(bookmark.url));
+  } catch {
+    return '網站連結';
+  }
+}
+
+function getBookmarkFavicon(bookmark: Bookmark): string {
+  const existingFavicon = bookmark.faviconUrl?.trim();
+  if (existingFavicon) {
+    return existingFavicon;
+  }
+
+  try {
+    return buildDefaultFavicon(new URL(bookmark.url));
+  } catch {
+    return 'https://www.google.com/s2/favicons?domain=example.com&sz=64';
+  }
+}
+
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [mode, setMode] = useState<AuthMode>('login');
@@ -615,19 +649,20 @@ export default function App() {
                   {group.items.map((bookmark) => (
                     <article className="bookmark-card" key={bookmark.id} style={{ borderLeftColor: bookmark.folderColor }}>
                       <div className="bookmark-meta">
-                        <div>
-                          <h4>{bookmark.title}</h4>
+                        <div className="bookmark-site">
                           <p className="site-preview">
                             <img
                               className="site-favicon"
-                              src={bookmark.faviconUrl || buildDefaultFavicon(new URL(bookmark.url))}
+                              src={getBookmarkFavicon(bookmark)}
                               alt="網站圖標"
                               loading="lazy"
                               decoding="async"
                               referrerPolicy="no-referrer"
                             />
-                            <span>{bookmark.siteDescription?.trim() || buildDefaultDescription(new URL(bookmark.url))}</span>
+                            <span>{getBookmarkDescription(bookmark)}</span>
                           </p>
+                          <h4>{bookmark.title}</h4>
+                          <p className="site-domain">{getBookmarkHostname(bookmark.url)}</p>
                         </div>
                         <a href={bookmark.url} target="_blank" rel="noreferrer">開啟</a>
                       </div>
