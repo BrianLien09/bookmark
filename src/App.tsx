@@ -408,19 +408,28 @@ export default function App() {
         <section className="panel config-panel">
           <p className="eyebrow">Bookmark Vault</p>
           <h1>Firebase 尚未設定</h1>
-          {missingVars.length > 0 && (
-            <div className="error-details">
-              <p className="error">缺失以下環境變數：</p>
-              <ul className="missing-vars">
-                {missingVars.map((varName) => (
-                  <li key={varName}><code>{varName}</code></li>
-                ))}
-              </ul>
+          
+          <div className="config-steps">
+            <h2>請先建立 <code>.env</code>，再重新啟動 <code>npm run dev</code>。</h2>
+            
+            {missingVars.length > 0 && (
+              <div className="error-details">
+                <p className="error-label">❌ 缺失以下環境變數：</p>
+                <ul className="missing-vars">
+                  {missingVars.map((varName) => (
+                    <li key={varName}><code>{varName}</code></li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            
+            <div className="env-template">
+              <p className="label">📝 <code>.env</code> 範例：</p>
+              <pre className="config-code">VITE_FIREBASE_API_KEY=your_api_key_here{"\n"}VITE_FIREBASE_AUTH_DOMAIN=your_auth_domain_here{"\n"}VITE_FIREBASE_PROJECT_ID=your_project_id_here{"\n"}VITE_FIREBASE_STORAGE_BUCKET=your_storage_bucket_here{"\n"}VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id_here{"\n"}VITE_FIREBASE_APP_ID=your_app_id_here</pre>
             </div>
-          )}
-          <p className="lead">請在 <code>.env</code> 中設定這些變數，再重新啟動 <code>npm run dev</code>。</p>
-          <pre className="config-code">VITE_FIREBASE_API_KEY=...{"\n"}VITE_FIREBASE_AUTH_DOMAIN=...{"\n"}VITE_FIREBASE_PROJECT_ID=...{"\n"}VITE_FIREBASE_STORAGE_BUCKET=...{"\n"}VITE_FIREBASE_MESSAGING_SENDER_ID=...{"\n"}VITE_FIREBASE_APP_ID=...</pre>
-          <p className="error">{configWarning}</p>
+          </div>
+          
+          {configWarning && <p className="error">{configWarning}</p>}
         </section>
       </main>
     );
