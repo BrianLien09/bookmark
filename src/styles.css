@@ -1,0 +1,382 @@
+@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;500;600;700&family=Quicksand:wght@300;400;500;600;700&display=swap');
+
+:root {
+  color-scheme: light;
+  --bg: #fafafa;
+  --panel: rgba(255, 255, 255, 0.96);
+  --text: #09090b;
+  --muted: #52525b;
+  --border: rgba(24, 24, 27, 0.1);
+  --primary: #2563eb;
+  --primary-strong: #1d4ed8;
+  --danger: #dc2626;
+  --shadow: 0 8px 24px rgba(24, 24, 27, 0.06);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: 'Quicksand', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+a,
+button {
+  cursor: pointer;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+input,
+textarea {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 0.9rem 1rem;
+  background: white;
+  color: var(--text);
+}
+
+input:focus,
+textarea:focus,
+button:focus-visible,
+a:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, 0.25);
+  outline-offset: 2px;
+}
+
+.shell {
+  min-height: 100vh;
+  padding: 32px;
+  max-width: 1240px;
+  margin: 0 auto;
+}
+
+.centered {
+  display: grid;
+  place-items: center;
+}
+
+.auth-shell {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 24px;
+  align-items: center;
+}
+
+.hero-card,
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 28px;
+  box-shadow: var(--shadow);
+}
+
+.hero-card {
+  padding: 40px;
+}
+
+.panel {
+  padding: 24px;
+}
+
+.config-panel {
+  max-width: 760px;
+  width: 100%;
+}
+
+.config-code {
+  overflow: auto;
+  padding: 16px;
+  border-radius: 18px;
+  background: #0f172a;
+  color: #e2e8f0;
+  line-height: 1.6;
+}
+
+.eyebrow {
+  margin: 0 0 10px;
+  color: var(--primary);
+  font-family: 'Caveat', cursive;
+  font-size: 1.4rem;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin-top: 0;
+}
+
+h1 {
+  font-size: clamp(2.4rem, 5vw, 4.8rem);
+  line-height: 0.95;
+  margin-bottom: 16px;
+}
+
+.lead,
+.muted,
+.notes,
+.empty,
+.feature-list,
+.bookmark-meta p {
+  color: var(--muted);
+}
+
+.feature-list {
+  padding-left: 1.2rem;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.auth-panel {
+  display: grid;
+  gap: 18px;
+}
+
+.segmented {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  background: rgba(24, 24, 27, 0.04);
+  padding: 6px;
+  border-radius: 18px;
+}
+
+.segmented button {
+  border: 0;
+  border-radius: 14px;
+  padding: 0.85rem 1rem;
+  background: transparent;
+  color: var(--muted);
+}
+
+.segmented .active {
+  background: white;
+  color: var(--text);
+  box-shadow: 0 8px 20px rgba(24, 24, 27, 0.08);
+}
+
+.form {
+  display: grid;
+  gap: 14px;
+}
+
+.form label {
+  display: grid;
+  gap: 8px;
+}
+
+.primary,
+.ghost,
+.bookmark-meta a {
+  border-radius: 14px;
+  padding: 0.9rem 1rem;
+  border: 1px solid transparent;
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.primary {
+  background: var(--primary);
+  color: white;
+}
+
+.primary:hover {
+  background: var(--primary-strong);
+}
+
+.ghost {
+  background: white;
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.ghost.danger {
+  color: var(--danger);
+}
+
+.success {
+  color: #15803d;
+}
+
+.error {
+  color: var(--danger);
+}
+
+.dashboard-shell {
+  display: grid;
+  gap: 20px;
+}
+
+select {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 0.9rem 1rem;
+  background: white;
+  color: var(--text);
+}
+
+.topbar,
+.section-header,
+.bookmark-meta,
+.bookmark-actions,
+.stats-grid,
+.content-grid {
+  display: flex;
+  gap: 16px;
+}
+
+.topbar,
+.section-header,
+.bookmark-meta,
+.bookmark-actions {
+  justify-content: space-between;
+  align-items: center;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.stat-card strong {
+  display: block;
+  font-size: 2rem;
+}
+
+.content-grid {
+  align-items: start;
+  display: grid;
+  grid-template-columns: 0.9fr 1.1fr;
+}
+
+.toolbar {
+  display: grid;
+  grid-template-columns: 1fr 240px;
+  gap: 12px;
+}
+
+.toolbar label {
+  display: grid;
+  gap: 8px;
+}
+
+.group-summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.grouped-list {
+  display: grid;
+  gap: 18px;
+}
+
+.bookmark-group {
+  display: grid;
+  gap: 6px;
+}
+
+.group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-left: 2px;
+}
+
+.group-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  line-height: 1;
+}
+
+.group-count {
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.bookmark-list {
+  display: grid;
+  gap: 12px;
+}
+
+.bookmark-card {
+  background: white;
+  border: 1px solid var(--border);
+  border-left: 6px solid var(--primary);
+  border-radius: 22px;
+  padding: 18px;
+  contain: content;
+}
+
+.bookmark-meta a {
+  background: rgba(37, 99, 235, 0.08);
+  color: var(--primary);
+}
+
+.bookmark-meta h4 {
+  margin-bottom: 4px;
+}
+
+.form select + input {
+  margin-top: -2px;
+}
+
+.bookmark-actions {
+  margin-top: 12px;
+}
+
+.bookmark-list,
+.grouped-list,
+.content-grid {
+  contain: layout paint;
+}
+
+@media (max-width: 960px) {
+  .auth-shell,
+  .content-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .shell {
+    padding: 16px;
+  }
+
+  .toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .topbar,
+  .bookmark-meta,
+  .bookmark-actions,
+  .section-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .hero-card,
+  .panel {
+    padding: 18px;
+  }
+}
