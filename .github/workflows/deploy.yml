@@ -15,9 +15,6 @@ concurrency:
   group: github-pages
   cancel-in-progress: true
 
-env:
-  # 已移除：Node.js 24 現已原生支持所有 action
-
 jobs:
   build:
     runs-on: ubuntu-latest
