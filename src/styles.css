@@ -103,6 +103,86 @@ a:focus-visible {
   margin-bottom: 8px;
 }
 
+.current-status {
+  background: rgba(37, 99, 235, 0.04);
+  border-left: 4px solid var(--primary);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.status-label {
+  color: var(--primary);
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.status-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(37, 99, 235, 0.2);
+  background: white;
+}
+
+.status-item.set {
+  border-color: rgba(22, 163, 74, 0.3);
+  background: rgba(22, 163, 74, 0.05);
+}
+
+.status-item.missing {
+  border-color: rgba(220, 38, 38, 0.3);
+  background: rgba(220, 38, 38, 0.05);
+}
+
+.status-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.status-item.set .status-indicator {
+  background: #16a34a;
+  color: white;
+}
+
+.status-item.missing .status-indicator {
+  background: var(--danger);
+  color: white;
+}
+
+.status-info {
+  display: grid;
+  gap: 4px;
+  flex: 1;
+}
+
+.var-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text);
+  word-break: break-word;
+}
+
+.var-value {
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-family: 'Monaco', 'Courier New', monospace;
+}
+
 .error-details {
   background: rgba(220, 38, 38, 0.05);
   border-left: 4px solid var(--danger);

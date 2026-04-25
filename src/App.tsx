@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, type User } from 'firebase/auth';
 import { addDoc, collection, deleteDoc, doc, onSnapshot, query, updateDoc, where } from 'firebase/firestore';
-import { auth, db, firebaseReady, getFirebaseConfigErrors } from './firebase';
+import { auth, db, firebaseReady, getFirebaseConfigErrors, getFirebaseConfigDetails } from './firebase';
 import type { AuthMode, Bookmark, BookmarkFormState } from './types';
 
 const emptyForm: BookmarkFormState = {
@@ -402,6 +402,7 @@ export default function App() {
 
   if (!firebaseReady) {
     const missingVars = getFirebaseConfigErrors();
+    const configDetails = getFirebaseConfigDetails();
 
     return (
       <main className="shell centered">
@@ -411,6 +412,23 @@ export default function App() {
           
           <div className="config-steps">
             <h2>請先建立 <code>.env</code>，再重新啟動 <code>npm run dev</code>。</h2>
+            
+            <div className="current-status">
+              <p className="status-label">📊 目前環境變數狀態：</p>
+              <div className="status-grid">
+                {configDetails.map((detail) => (
+                  <div key={detail.name} className={`status-item ${detail.isSet ? 'set' : 'missing'}`}>
+                    <div className="status-indicator" aria-label={detail.isSet ? '已設定' : '未設定'}>
+                      {detail.isSet ? '✓' : '✗'}
+                    </div>
+                    <div className="status-info">
+                      <code className="var-name">{detail.name}</code>
+                      <span className="var-value">{detail.maskedValue}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
             
             {missingVars.length > 0 && (
               <div className="error-details">
