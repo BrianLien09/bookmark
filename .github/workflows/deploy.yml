@@ -23,11 +23,11 @@ jobs:
     steps:
       # 檢出程式碼
       - name: Checkout 🛎️
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       # 設定 Node.js 環境（使用 LTS 版本）
       - name: Setup Node.js ⚙️
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: "20"
           cache: npm
@@ -49,11 +49,11 @@ jobs:
 
       # 設定 GitHub Pages（建立必要的 metadata）
       - name: Setup Pages
-        uses: actions/configure-pages@v4
+        uses: actions/configure-pages@v5
 
       # 上傳建置結果為 artifact
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v4
         with:
           path: dist
 
@@ -68,4 +68,4 @@ jobs:
       # 從 artifact 部署到 GitHub Pages
       - name: Deploy to GitHub Pages 🚀
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
