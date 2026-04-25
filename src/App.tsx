@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, type User } from 'firebase/auth';
 import { addDoc, collection, deleteDoc, doc, onSnapshot, query, updateDoc, where } from 'firebase/firestore';
-import { auth, db, firebaseReady, getFirebaseConfigErrors, getFirebaseConfigDetails } from './firebase';
+import { auth, db, firebaseReady, getFirebaseConfigErrors } from './firebase';
 import type { AuthMode, Bookmark, BookmarkFormState } from './types';
 
 const emptyForm: BookmarkFormState = {
@@ -98,7 +98,6 @@ export default function App() {
   const [form, setForm] = useState<BookmarkFormState>(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState('');
-  const [configWarning, setConfigWarning] = useState('');
   const draftCategoryNameRef = useRef('');
   const draftCategoryColorRef = useRef('');
 
@@ -113,12 +112,6 @@ export default function App() {
       setUser(nextUser);
       setLoading(false);
     });
-  }, []);
-
-  useEffect(() => {
-    if (!firebaseReady) {
-      setConfigWarning('Firebase 尚未設定完成，請先建立 `.env` 後重新啟動開發伺服器。');
-    }
   }, []);
 
   useEffect(() => {
@@ -400,59 +393,6 @@ export default function App() {
     return <main className="shell centered">載入中...</main>;
   }
 
-  if (!firebaseReady) {
-    const missingVars = getFirebaseConfigErrors();
-    const configDetails = getFirebaseConfigDetails();
-
-    return (
-      <main className="shell centered">
-        <section className="panel config-panel">
-          <p className="eyebrow">Bookmark Vault</p>
-          <h1>Firebase 尚未設定</h1>
-          
-          <div className="config-steps">
-            <h2>請先建立 <code>.env</code>，再重新啟動 <code>npm run dev</code>。</h2>
-            
-            <div className="current-status">
-              <p className="status-label">📊 目前環境變數狀態：</p>
-              <div className="status-grid">
-                {configDetails.map((detail) => (
-                  <div key={detail.name} className={`status-item ${detail.isSet ? 'set' : 'missing'}`}>
-                    <div className="status-indicator" aria-label={detail.isSet ? '已設定' : '未設定'}>
-                      {detail.isSet ? '✓' : '✗'}
-                    </div>
-                    <div className="status-info">
-                      <code className="var-name">{detail.name}</code>
-                      <span className="var-value">{detail.displayValue}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            
-            {missingVars.length > 0 && (
-              <div className="error-details">
-                <p className="error-label">❌ 缺失以下環境變數：</p>
-                <ul className="missing-vars">
-                  {missingVars.map((varName) => (
-                    <li key={varName}><code>{varName}</code></li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            
-            <div className="env-template">
-              <p className="label">📝 <code>.env</code> 範例：</p>
-              <pre className="config-code">VITE_FIREBASE_API_KEY=your_api_key_here{"\n"}VITE_FIREBASE_AUTH_DOMAIN=your_auth_domain_here{"\n"}VITE_FIREBASE_PROJECT_ID=your_project_id_here{"\n"}VITE_FIREBASE_STORAGE_BUCKET=your_storage_bucket_here{"\n"}VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id_here{"\n"}VITE_FIREBASE_APP_ID=your_app_id_here</pre>
-            </div>
-          </div>
-          
-          {configWarning && <p className="error">{configWarning}</p>}
-        </section>
-      </main>
-    );
-  }
-
   if (!user) {
     return (
       <main className="shell auth-shell">
@@ -468,6 +408,7 @@ export default function App() {
         </section>
 
         <section className="panel auth-panel">
+          {!firebaseReady ? <p className="error">Firebase 設定尚未完成，目前可能無法登入。</p> : null}
           <div className="segmented" role="tablist" aria-label="登入模式切換">
             <button className={mode === 'login' ? 'active' : ''} onClick={() => setMode('login')} type="button">登入</button>
             <button className={mode === 'register' ? 'active' : ''} onClick={() => setMode('register')} type="button">註冊</button>
