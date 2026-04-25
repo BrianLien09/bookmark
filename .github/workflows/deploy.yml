@@ -42,11 +42,12 @@ jobs:
         with:
           ref: master
           path: master-branch
+          persist-credentials: true
 
       - name: Replace master contents
         shell: bash
         run: |
-          rm -rf master-branch/*
+          rm -rf master-branch/* master-branch/.[!.]* master-branch/..?* || true
           cp -R dist/. master-branch/
           cp master-branch/index.html master-branch/404.html
 
@@ -62,4 +63,4 @@ jobs:
             exit 0
           fi
           git commit -m "chore(deploy): 更新 GitHub Pages 靜態檔"
-          git push origin master
+          git push origin HEAD:master
